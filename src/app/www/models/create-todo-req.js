@@ -1,3 +1,5 @@
+'use strict'
+
 class CreateTodoModelRequest {
     static __keys = ['title', 'description']
 

@@ -1,3 +1,5 @@
+'use strict'
+
 const CreateTodoModelRequest = require('./create-todo-req')
 const UpdateTodoModelRequest = require('./update-todo-req')
 
