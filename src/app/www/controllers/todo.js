@@ -1,6 +1,6 @@
 'use strict'
 
-const { app } = require('../engine')
+const { app, io } = require('../engine')
 const models = require('../../database/models')
 const { CreateTodoModelRequest, UpdateTodoModelRequest } = require('../models')
 
@@ -31,6 +31,7 @@ app.post('/todo', (req, res) => {
 
         models.Todo.create({ ...createTodoReq, status: models.TodoStatus.PENDING }).then(todo => {
             res.send(todo)
+            io.emit('new_todo', {id: todo.id})
         })
     } catch (err) {
         console.error('Error parsing body to CreateTodoModelRequest', err)
@@ -84,7 +85,10 @@ app.delete('/todo/:id', (req, res) => {
         where: {
             id: req.params.id
         }
-    }).then(() => res.sendStatus(200)).catch(err => {
+    }).then(() => {
+        res.sendStatus(200)
+        io.emit('deleted_todo', {id: req.params.id})
+    }).catch(err => {
         console.error(err)
         res.sendStatus(404)
     })
@@ -96,6 +100,7 @@ function updateTodo(req, res, updateTodoReq) {
             if (todoStatus) {
                 models.Todo.update({ ...updateTodoReq }, { where: { id: req.params.id } }).then(todo => {
                     models.Todo.findByPk(todo[0]).then(todo => res.send(todo))
+                    io.emit('updated_todo', {id: todo[0]})
                 })
             } else {
                 console.error('the status \'' + updateTodoReq.status + '\' was not found in the database')
@@ -105,6 +110,7 @@ function updateTodo(req, res, updateTodoReq) {
     } else {
         models.Todo.update({ ...updateTodoReq }, { where: { id: req.params.id } }).then(todo => {
             models.Todo.findByPk(todo[0]).then(todo => res.send(todo))
+            io.emit('updated_todo', {id: todo[0]})
         })
     }
 }
