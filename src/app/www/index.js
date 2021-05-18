@@ -1,12 +1,6 @@
 'use strict'
 
 require('./controllers')
-const app = require('./express')
-
-const httpServer = require("http").createServer(app);
-const options = { /* ... */ };
-const io = require('socket.io')(httpServer, options);
-
-io.on("connection", socket => console.log('new connection'));
+const { httpServer, io } = require('./engine')
 
 module.exports = { httpServer, io }
