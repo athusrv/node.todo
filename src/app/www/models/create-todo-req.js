@@ -9,7 +9,7 @@ class CreateTodoModelRequest {
 
         if (options.validateMissingKeys) {
             CreateTodoModelRequest.__keys.forEach(key => {
-                if (!model[key]) {
+                if (!model[key] && (!options.optionalKeys || !options.optionalKeys.find(k => k === key))) {
                     throw Error('the key \'' + key + '\' is required')
                 }
             })

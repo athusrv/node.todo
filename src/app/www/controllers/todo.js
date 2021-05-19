@@ -26,12 +26,13 @@ app.post('/todo', (req, res) => {
     try {
         const createTodoReq = CreateTodoModelRequest.build(req.body, {
             validateMissingKeys: true,
-            deleteExtraKeys: true
+            deleteExtraKeys: true,
+            optionalKeys: ['description']
         })
 
         models.Todo.create({ ...createTodoReq, status: models.TodoStatus.PENDING }).then(todo => {
             res.send(todo)
-            io.emit('new_todo', {id: todo.id})
+            io.emit('new_todo', { id: todo.id })
         })
     } catch (err) {
         console.error('Error parsing body to CreateTodoModelRequest', err)
@@ -50,7 +51,7 @@ app.put('/todo/:id', (req, res) => {
             deleteExtraKeys: true
         })
 
-        updateTodo(req, res, updateTodoReq)
+        updateTodo(req.params.id, updateTodoReq).then(todo => res.send(todo)).catch(() => res.sendStatus(404))
     } catch (err) {
         console.error('Error parsing body to UpdateTodoModelRequest', err)
         res.sendStatus(403)
@@ -68,7 +69,7 @@ app.patch('/todo/:id', (req, res) => {
             deleteExtraKeys: true
         })
 
-        updateTodo(req, res, updateTodoReq)
+        updateTodo(req.params.id, updateTodoReq).then(todo => res.send(todo)).catch(() => res.sendStatus(404))
 
     } catch (err) {
         console.error('Error parsing body to UpdateTodoModelRequest', err)
@@ -87,30 +88,49 @@ app.delete('/todo/:id', (req, res) => {
         }
     }).then(() => {
         res.sendStatus(200)
-        io.emit('deleted_todo', {id: req.params.id})
+        io.emit('deleted_todo', { id: req.params.id })
     }).catch(err => {
         console.error(err)
         res.sendStatus(404)
     })
 })
 
-function updateTodo(req, res, updateTodoReq) {
-    if (updateTodoReq.status) {
-        models.TodoStatus.findByPk(updateTodoReq.status).then(todoStatus => {
-            if (todoStatus) {
-                models.Todo.update({ ...updateTodoReq }, { where: { id: req.params.id } }).then(todo => {
-                    models.Todo.findByPk(todo[0]).then(todo => res.send(todo))
-                    io.emit('updated_todo', {id: todo[0]})
-                })
-            } else {
-                console.error('the status \'' + updateTodoReq.status + '\' was not found in the database')
-                res.sendStatus(404)
-            }
-        })
-    } else {
-        models.Todo.update({ ...updateTodoReq }, { where: { id: req.params.id } }).then(todo => {
-            models.Todo.findByPk(todo[0]).then(todo => res.send(todo))
-            io.emit('updated_todo', {id: todo[0]})
-        })
-    }
+app.delete('/todo', (req, res) => {
+    models.Todo.destroy({
+        truncate: true
+    }).then(() => {
+        res.sendStatus(200)
+        io.emit('deleted_all_todos')
+    }).catch(err => {
+        console.error(err)
+        res.sendStatus(404)
+    })
+})
+
+function updateTodo(affectedId, updateTodoReq) {
+    return new Promise((resolve, reject) => {
+        if (updateTodoReq.status) {
+            models.TodoStatus.findByPk(updateTodoReq.status).then(todoStatus => {
+                if (todoStatus) {
+                    models.Todo.update({ ...updateTodoReq }, {
+                        where: { id: affectedId },
+                        returning: true,
+                        plain: true
+                    }).then(_ => {
+                        io.emit('updated_todo', { id: affectedId })
+                        models.Todo.findByPk(affectedId).then(todo => resolve(todo))
+                    })
+                } else {
+                    console.error('the status \'' + updateTodoReq.status + '\' was not found in the database')
+                    reject()
+                }
+            })
+        } else {
+            models.Todo.update({ ...updateTodoReq }, { where: { id: affectedId } }).then(_ => {
+                io.emit('updated_todo', { id: affectedId })
+                models.Todo.findByPk(affectedId).then(todo => resolve(todo))
+            })
+        }
+    })
+
 }
