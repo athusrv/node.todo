@@ -15,6 +15,6 @@ const options = {
 };
 const io = require('socket.io')(httpServer, options);
 
-io.on("connection", socket => console.log('new connection'));
+io.on("connection", socket => console.log(`new connection ${socket.id}`));
 
 module.exports = { app, httpServer, io }
